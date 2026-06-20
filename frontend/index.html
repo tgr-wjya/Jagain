@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jagain - Advanced AI Anti-Scam Shield</title>
+    <meta name="description" content="Jagain adalah sistem pelindung anti-scam berbasis kecerdasan buatan (AI) yang mendeteksi SMS penipuan, tautan phishing, dan email palsu secara real-time.">
+    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="app-header">
+            <h1 class="logo">🛡️ Jagain</h1>
+            <div id="connection-badge" class="badge">Menghubungkan...</div>
+        </header>
+        
+        <main class="main-container">
+            <section class="sidebar">
+                <div class="card score-card">
+                    <h3>Risk Score</h3>
+                    <div id="risk-score" class="score-value">0%</div>
+                    <div id="risk-level" class="score-label">UNKNOWN</div>
+                </div>
+                
+                <div class="card indicators-card">
+                    <h3>Scam Indicators</h3>
+                    <div id="indicators-list" class="tags-container">
+                        <span class="empty-tag">Belum ada pemindaian</span>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message bot">
+                        Halo! Tempel teks pesan, SMS, email, atau tautan (URL) mencurigakan di sini. Saya akan menganalisis dan mendeteksi apakah pesan tersebut merupakan penipuan (scam) atau phishing.
+                    </div>
+                </div>
+                
+                <div class="input-form">
+                    <textarea id="message-input" placeholder="Tempel pesan atau tautan di sini..."></textarea>
+                    <button id="send-button">Scan</button>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="index.js"></script>
+</body>
+</html>
