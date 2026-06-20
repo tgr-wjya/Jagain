@@ -1,11 +1,15 @@
 import os
 import re
 import json
+import sqlite3
+from dotenv import load_dotenv
+load_dotenv()
+
 from openai import AzureOpenAI
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
-from backend.database import check_url_in_db
+from backend.database import check_url_in_db, DB_PATH
 
 URL_REGEX = r'(https?://[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}(?:/[^\s]*)?)'
 
@@ -51,10 +55,18 @@ class AntiScamDetector:
         # Extract and check URLs first
         urls = extract_urls(message)
         phishing_urls = []
-        for url in urls:
-            status = check_url_in_db(url)
-            if status == "phishing":
-                phishing_urls.append(url)
+        if urls:
+            conn = None
+            try:
+                with sqlite3.connect(DB_PATH) as c:
+                    conn = c
+                    for url in urls:
+                        status = check_url_in_db(url, conn=conn)
+                        if status == "phishing":
+                            phishing_urls.append(url)
+            finally:
+                if conn is not None:
+                    conn.close()
                 
         # Short-circuit if high-risk phishing links match local blocklist
         if phishing_urls:
@@ -100,16 +112,25 @@ class AntiScamDetector:
         }
         """.strip()
         
-        response = self.openai_client.chat.completions.create(
-            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_CHAT"),
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt.replace("{context}", context)},
-                {"role": "user", "content": message}
-            ]
-        )
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=os.getenv("AZURE_OPENAI_DEPLOYMENT_CHAT"),
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system_prompt.replace("{context}", context)},
+                    {"role": "user", "content": message}
+                ]
+            )
+            result = json.loads(response.choices[0].message.content)
+        except Exception as e:
+            result = {
+                "risk_score": 50,
+                "risk_level": "Suspicious",
+                "indicators": ["API Error"],
+                "explanation": f"An error occurred while analyzing the message: {str(e)}",
+                "recommendation": "Please exercise caution when interacting with this message."
+            }
         
-        result = json.loads(response.choices[0].message.content)
         result["urls_checked"] = urls
         result["blocklisted_urls"] = []
         result["detection_source"] = "Azure OpenAI RAG"
