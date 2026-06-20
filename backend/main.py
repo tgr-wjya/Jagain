@@ -1,4 +1,5 @@
 import os
+import threading
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +14,7 @@ app = FastAPI(title="Jagain API", description="Anti-Scam Analysis Server")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -23,6 +24,7 @@ class MessageRequest(BaseModel):
     
 # Lazy load detector
 detector = None
+detector_lock = threading.Lock()
 
 @app.get("/api/status")
 def get_status():
@@ -45,10 +47,12 @@ def check_message(req: MessageRequest):
         raise HTTPException(status_code=400, detail="Message cannot be empty")
         
     if detector is None:
-        try:
-            detector = AntiScamDetector()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to initialize Azure clients: {e}")
+        with detector_lock:
+            if detector is None:
+                try:
+                    detector = AntiScamDetector()
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Failed to initialize Azure clients: {e}")
             
     try:
         result = detector.analyze_message(req.message)
