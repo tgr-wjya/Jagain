@@ -1,30 +1,30 @@
-# Spesifikasi Desain: Jagain (Multilingual Anti-Scam Chatbot)
+# Design Specification: Jagain (Multilingual Anti-Scam Chatbot)
 
-Dokumen ini mendokumentasikan spesifikasi teknis dan desain arsitektur untuk proyek agen chatbot anti-scam bernama **Jagain**. Chatbot ini dirancang untuk mendeteksi penipuan dalam pesan teks (SMS/chat) serta tautan (URL) menggunakan metode hibrida: basis data URL lokal (SQLite) dan Retrieval-Augmented Generation (RAG) berbasis Microsoft AI Foundry (Azure OpenAI gpt-4o dan Azure AI Search).
+This document details the technical specifications and architectural design for the anti-scam chatbot agent named **Jagain**. The chatbot is designed to detect fraudulent messages (SMS/chat) and malicious links (URLs) using a hybrid approach: a local URL database (SQLite) and Retrieval-Augmented Generation (RAG) powered by Microsoft AI Foundry (Azure OpenAI gpt-4o and Azure AI Search).
 
-## 1. Arsitektur Sistem (High-Level Architecture)
+## 1. High-Level Architecture & Components
 
-Aplikasi didekomposisi menjadi 4 komponen utama:
-1. **Engine Preprocessing Data (Lokal & Offline):**
-   - Mengubah dataset mentah menjadi format siap pakai.
-   - Memasukkan URL berbahaya/aman ke basis data SQLite lokal.
-   - Meng-embed pesan SMS Spam Collection dan mengunggahnya ke Azure AI Search.
-2. **Script Deployment Azure:**
-   - Script PowerShell (`deploy_azure.ps1`) menggunakan Azure CLI untuk membuat grup sumber daya, mengonfigurasi Azure OpenAI, men-deploy model (`gpt-4o` dan `text-embedding-3-small`), membuat Azure AI Search, dan memproduksi file `.env`.
+The application is decomposed into four main components:
+1. **Data Preprocessing & Ingestion Engine (Offline/Local):**
+   - Prepares raw datasets for lookup and RAG.
+   - Loads malicious and legitimate URLs into a local indexed SQLite database.
+   - Embeds and uploads the SMS Spam Collection dataset to Azure AI Search.
+2. **Azure Deployment Engine:**
+   - A PowerShell script (`deploy_azure.ps1`) using Azure CLI to create resource groups, set up Azure OpenAI, deploy models (`gpt-4o` and `text-embedding-3-small`), create Azure AI Search, and output local environment secrets to a `.env` file.
 3. **Backend Service (Python FastAPI):**
-   - Menangani routing logika pendeteksian.
-   - Mengekstrak URL menggunakan RegEx dan mencocokkannya dengan SQLite blocklist.
-   - Melakukan embedding kueri teks dan memanggil Azure AI Search jika lolos deteksi URL cepat.
-   - Menghubungkan konteks ke Azure OpenAI (gpt-4o) untuk menghasilkan penjelasan keamanan yang interaktif dalam bahasa kueri user.
+   - Handles the orchestration logic for scam checks.
+   - Extracts URLs using RegEx and performs fast O(1) checks against the local SQLite database.
+   - Generates vector embeddings for user text and retrieves matching scam history from Azure AI Search when needed.
+   - Feeds contextual references to Azure OpenAI (gpt-4o) to generate interactive safety advice in the user's input language.
 4. **Static Web App (Frontend UI):**
-   - Antarmuka chat modern dengan estetika dark mode premium dan glassmorphism.
-   - Indikator tingkat risiko visual dan daftar indikator kecurigaan.
+   - A premium web page featuring a modern glassmorphic chat interface.
+   - Incorporates a visual "Risk Level" meter and warning indicator tags.
 
 ---
 
-## 2. Alur Deteksi Berurutan (Sequential Screening Flow)
+## 2. Sequential Screening Flow
 
-Untuk meminimalisir latensi dan menekan biaya API Azure OpenAI, backend memproses kueri masukan user dengan alur berurutan berikut:
+To minimize latency and optimize Azure OpenAI API costs, the backend screens incoming user messages sequentially:
 
 ```
 [User Input] 
@@ -32,97 +32,97 @@ Untuk meminimalisir latensi dan menekan biaya API Azure OpenAI, backend memprose
      ▼
 [Regex URL Extraction]
      │
-     ├─► Ada URL? ──► [Query SQLite scam_urls]
-     │                      │
-     │                      ├─► Ditemukan (Phishing)? ──► [Short-Circuit WARNING] (Latency <5ms, Cost $0)
-     │                      │
-     │                      └─► Tidak Ditemukan? ───────┐
-     │                                                   ▼
-     └─► Teks Saja / Lolos Cek URL ──────────────► [Embed Query & Search Azure AI Search] (150ms)
-                                                         │
-                                                         ▼
-                                                   [Retrieve Top-K Contexts]
-                                                         │
-                                                         ▼
-                                                   [Invoke Azure OpenAI gpt-4o] (1.5s)
-                                                         │
-                                                         ▼
-                                                   [Structured JSON Response] (Multilingual)
+     ├─► URL Found? ──► [Query SQLite scam_urls]
+     │                        │
+     │                        ├─► Match Found (Phishing)? ──► [Short-Circuit WARNING] (Latency <5ms, Cost $0)
+     │                        │
+     │                        └─► No Match Found? ─────────┐
+     │                                                     ▼
+     └─► Text-Only / Clean URL ──────────────────► [Embed Query & Search Azure AI Search] (150ms)
+                                                           │
+                                                           ▼
+                                                     [Retrieve Top-K Contexts]
+                                                           │
+                                                           ▼
+                                                     [Invoke Azure OpenAI gpt-4o] (1.5s)
+                                                           │
+                                                           ▼
+                                                     [Structured JSON Response] (Multilingual)
 ```
 
 ---
 
-## 3. Spesifikasi Skema Database & Indeks
+## 3. Database & Index Schema
 
-### A. Database SQLite Lokal (`scam_urls.db`)
-Digunakan untuk pencocokan URL instan (O(1)). Menggabungkan data dari `Phishing URLs.csv` dan `URL dataset.csv`.
+### A. Local SQLite Database Schema (`scam_urls.db`)
+Used for instant URL and domain checks (O(1)). Merges data from `Phishing URLs.csv` and `URL dataset.csv`.
 
 ```sql
 CREATE TABLE scam_urls (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    url TEXT UNIQUE,         -- URL yang dinormalisasi (lowercase, tanpa protokol/www)
-    domain TEXT,            -- Root domain hasil ekstraksi
-    type TEXT               -- 'phishing' atau 'legitimate'
+    url TEXT UNIQUE,         -- Normalized URL (lowercase, stripped of protocol/www)
+    domain TEXT,            -- Extracted root domain
+    type TEXT               -- 'phishing' or 'legitimate'
 );
 
 CREATE INDEX idx_url ON scam_urls(url);
 CREATE INDEX idx_domain ON scam_urls(domain);
 ```
 
-### B. Azure AI Search (`sms-scams-index`)
-Digunakan untuk pencarian semantik kemiripan teks menggunakan dataset `sms+spam+collection/SMSSpamCollection`.
+### B. Azure AI Search Index (`sms-scams-index`)
+Used for semantic text-similarity queries on the `sms+spam+collection/SMSSpamCollection` dataset.
 
 - **Field Schema:**
   - `id`: Edm.String (Key, Retrievable)
   - `text`: Edm.String (Searchable, Retrievable)
-  - `label`: Edm.String (Filterable, Retrievable) - Berisi 'spam' atau 'ham'
+  - `label`: Edm.String (Filterable, Retrievable) - Contains 'spam' or 'ham'
   - `vector`: Collection(Edm.Single) (Searchable, Dimension: 1536, Vector Search Profile: Cosine)
 
 ---
 
-## 4. Prompt RAG & Dukungan Multilingual (Multilingual Support)
+## 4. Prompt RAG & Multilingual Support
 
-Kueri dalam bahasa apapun (misalnya Bahasa Indonesia, Inggris, Jepang, dll.) akan di-embed oleh model multilingual `text-embedding-3-small`, menyelaraskannya dengan dataset referensi SMS berbahasa Inggris di Azure AI Search secara semantik.
+Queries in any language (e.g. Indonesian, English, Spanish, Japanese) are embedded using the multilingual `text-embedding-3-small` model, allowing semantic alignment with the English templates stored in Azure AI Search.
 
-Sistem prompt memandu `gpt-4o` untuk mendeteksi bahasa masukan user dan membalas dalam bahasa tersebut:
+The system prompt instructs `gpt-4o` to detect the query language and respond in the same language:
 
 ```
 SYSTEM PROMPT:
-Anda adalah asisten keamanan anti-scam bernama Jagain. Tugas Anda adalah menganalisis pesan dari pengguna.
-Gunakan konteks pesan serupa (scam/legitimate) berikut yang ditarik dari basis data kami sebagai referensi penilaian Anda:
+You are an expert Anti-Scam Security Assistant named Jagain. Your job is to analyze the user's message.
+Use the following retrieved historical context of similar messages (scams/legitimate) to help make your decision:
 
-[KONTEKS REFERENSI]
-Pesan: {text} | Label: {label}
+[RETRIEVED CONTEXT]
+Message: {text} | Label: {label}
 ...
 
-[PERSYARATAN UTAMA]
-Deteksi bahasa yang digunakan oleh pengguna dalam pesan mereka.
-1. Lakukan analisis Anda dalam bahasa yang terdeteksi tersebut.
-2. Tulis isi kolom "explanation" dan "recommendation" dalam BAHASA YANG SAMA.
-3. Kolom "risk_level" dan "indicators" harus tetap ditulis dalam bahasa Inggris untuk keperluan standardisasi data.
+[CRITICAL REQUIREMENT]
+Detect the language used by the user in their message.
+1. Perform your analysis in that detected language.
+2. Return both the "explanation" and "recommendation" in the EXACT SAME language.
+3. The "risk_level" and "indicators" should remain in English for standardization.
 
-Kembalikan respon HANYA dalam format JSON seperti contoh berikut:
+Return ONLY a JSON response in the following schema:
 {
   "risk_score": 90,
   "risk_level": "High Risk",
   "indicators": ["Suspicious URL link", "Urgency claim"],
-  "explanation": "[Penjelasan analisis dalam bahasa pengguna]",
-  "recommendation": "[Rekomendasi tindakan dalam bahasa pengguna]"
+  "explanation": "[Written in the user's input language, e.g., Indonesian/Japanese/Spanish]",
+  "recommendation": "[Written in the user's input language, e.g., Indonesian/Japanese/Spanish]"
 }
 ```
 
 ---
 
-## 5. Rencana Verifikasi (Verification Plan)
+## 5. Verification Plan
 
-### A. Pengujian Otomatis
+### A. Automated Tests
 - **Unit Testing (Python pytest):**
-    - Verifikasi ekstraksi RegEx URL dan fungsi normalisasi URL.
-    - Verifikasi query SQLite mengembalikan nilai yang tepat untuk domain yang terdaftar/tidak terdaftar.
-    - Mocking API Azure OpenAI dan Azure AI Search untuk memverifikasi parser JSON hasil respon GPT bekerja dengan baik.
+    - Verify RegEx URL extraction and normalization functions.
+    - Verify SQLite queries return correct values for matched/unmatched domains.
+    - Mock Azure OpenAI and Azure AI Search endpoints to verify the JSON parser handles LLM responses correctly.
 - **Integration Testing:**
-    - Skrip verifikasi koneksi cloud (`test_connections.py`) untuk memvalidasi konfigurasi `.env` ke Azure AI Search dan Azure OpenAI sebelum aplikasi dijalankan.
+    - Connection testing script (`test_connections.py`) to validate local `.env` keys against the deployed cloud search and OpenAI services before spinning up the backend server.
 
-### B. Verifikasi Manual
-- Menjalankan server backend FastAPI secara lokal dan mengetes endpoint `POST /api/check-message` dengan postman/curl.
-- Membuka halaman frontend `Jagain` di web browser dan mencoba memasukkan pesan penipuan dalam bahasa Indonesia, Inggris, dan URL acak untuk melihat perubahan indikator risiko dan respon bahasa secara langsung.
+### B. Manual Verification
+- Start the FastAPI backend server and test `POST /api/check-message` using curl/Postman.
+- Open the frontend page for `Jagain` in a browser, submit test messages in Indonesian and English, and verify the risk scores, indicator tags, and language responses.
