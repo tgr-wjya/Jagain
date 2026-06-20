@@ -315,7 +315,7 @@ body {
     align-items: flex-end;
 }
 
-textarea {
+.input-form textarea {
     flex: 1;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--border);
@@ -330,17 +330,17 @@ textarea {
     transition: var(--transition);
 }
 
-textarea:focus {
+.input-form textarea:focus {
     border-color: #3b82f6;
     background: rgba(255, 255, 255, 0.07);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
-textarea::placeholder {
+.input-form textarea::placeholder {
     color: var(--text-muted);
 }
 
-button {
+.input-form button {
     background: var(--accent);
     color: #fff;
     border: none;
@@ -357,17 +357,17 @@ button {
     box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
 }
 
-button:hover {
+.input-form button:hover {
     background: var(--accent-hover);
     transform: translateY(-1px);
     box-shadow: 0 6px 16px rgba(139, 92, 246, 0.35);
 }
 
-button:active {
+.input-form button:active {
     transform: translateY(1px);
 }
 
-button:disabled {
+.input-form button:disabled {
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-muted);
     border: 1px solid var(--border);
