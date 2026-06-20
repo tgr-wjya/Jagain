@@ -65,7 +65,7 @@ def ingest():
         return
         
     documents = []
-    with open(sms_file, 'r', encoding='utf-8') as f:
+    with open(sms_file, 'r', encoding='utf-8', errors='ignore') as f:
         for idx, line in enumerate(f):
             parts = line.strip().split('\t')
             if len(parts) < 2: continue
@@ -85,10 +85,21 @@ def ingest():
                 })
             except Exception as e:
                 print(f"Error embedding row {idx}: {e}")
+            
+            if len(documents) >= 100:
+                try:
+                    search_client.upload_documents(documents=documents)
+                    print(f"Uploaded batch of {len(documents)} documents.")
+                except Exception as e:
+                    print(f"Failed to upload batch: {e}")
+                documents = []
                 
     if documents:
-        search_client.upload_documents(documents=documents)
-        print(f"Uploaded {len(documents)} documents to Azure AI Search!")
+        try:
+            search_client.upload_documents(documents=documents)
+            print(f"Uploaded final batch of {len(documents)} documents to Azure AI Search!")
+        except Exception as e:
+            print(f"Failed to upload final batch: {e}")
 
 if __name__ == "__main__":
     ingest()
