@@ -98,17 +98,17 @@ class AntiScamDetector:
         
         [CRITICAL REQUIREMENT]
         Detect the language used by the user in their message.
-        1. Perform your analysis in that detected language.
-        2. Return both the "explanation" and "recommendation" in the EXACT SAME language.
-        3. The "risk_level" and "indicators" should remain in English for standardization.
+        1. If the detected language is Indonesian (or related regional languages), perform your analysis, explanation, and recommendation in Bahasa Indonesia.
+        2. Otherwise (including English and all other languages), perform your analysis, explanation, and recommendation in English.
+        3. The "risk_level" and "indicators" must always remain in English for standardization.
         
         Return ONLY a JSON response in the following schema:
         {
           "risk_score": 90,
           "risk_level": "High Risk",
           "indicators": ["Suspicious URL link", "Urgency claim"],
-          "explanation": "[Written in the user's input language]",
-          "recommendation": "[Written in the user's input language]"
+          "explanation": "[Written in either English or Bahasa Indonesia based on the rules above]",
+          "recommendation": "[Written in either English or Bahasa Indonesia based on the rules above]"
         }
         """.strip()
         
