@@ -10,3 +10,11 @@ venv/
 node_modules/
 dist/
 build/
+
+# Local DBs, datasets, and agents files
+scam_urls.db
+sms+spam+collection/
+Phishing Detection Dataset/
+Phishing URL dataset/
+.agents/
+whatsapp/.wwebjs_auth/
