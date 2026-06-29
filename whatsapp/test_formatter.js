@@ -6,6 +6,16 @@ try {
     const raw = "!jagain pinjam dulu seratus";
     const parsed = parseMessage(raw);
     assert.strictEqual(parsed, "pinjam dulu seratus");
+
+    // Additional: non-string input
+    assert.strictEqual(parseMessage(null), "");
+    assert.strictEqual(parseMessage(undefined), "");
+    
+    // Additional: regex without trailing spaces
+    assert.strictEqual(parseMessage("!jagain"), "");
+    assert.strictEqual(parseMessage("!jagain   "), "");
+    assert.strictEqual(parseMessage("!JAGAIN halo"), "halo");
+
     console.log("PASS: parseMessage test");
 } catch (e) {
     console.error("FAIL: parseMessage test", e);
@@ -48,6 +58,36 @@ Rekomendasi:
 Jangan klik link tersebut.`;
 
     assert.strictEqual(formatted, expected);
+
+    // Additional: Null/undefined defensive checks
+    const formattedNull = formatReply(null);
+    const expectedNull = 
+`=== BOT ANTI-SCAM JAGAIN ===
+
+Tingkat Risiko: Tidak diketahui (0%)
+Indikator: Tidak ada
+
+Penjelasan:
+Tidak ada penjelasan
+
+Rekomendasi:
+Tidak ada rekomendasi`;
+    assert.strictEqual(formattedNull, expectedNull);
+
+    const formattedMissing = formatReply({ risk_level: "High Risk", risk_score: 90 });
+    const expectedMissing = 
+`=== BOT ANTI-SCAM JAGAIN ===
+
+Tingkat Risiko: Risiko Tinggi (90%)
+Indikator: Tidak ada
+
+Penjelasan:
+Tidak ada penjelasan
+
+Rekomendasi:
+Tidak ada rekomendasi`;
+    assert.strictEqual(formattedMissing, expectedMissing);
+
     console.log("PASS: formatReply test");
 } catch (e) {
     console.error("FAIL: formatReply test", e);

@@ -1,26 +1,45 @@
+const RISK_LEVEL_TRANSLATIONS = {
+    "High Risk": "Risiko Tinggi",
+    "Medium Risk": "Risiko Sedang",
+    "Suspicious": "Mencurigakan",
+    "Safe": "Aman",
+    "Low Risk": "Risiko Rendah"
+};
+
 function parseMessage(text) {
-    if (!text) return "";
-    return text.replace(/^!jagain\s+/i, "").trim();
+    if (typeof text !== 'string') return "";
+    return text.replace(/^!jagain\s*/i, "").trim();
 }
 
 function translateRiskLevel(level) {
-    const translations = {
-        "High Risk": "Risiko Tinggi",
-        "Medium Risk": "Risiko Sedang",
-        "Suspicious": "Mencurigakan",
-        "Safe": "Aman",
-        "Low Risk": "Risiko Rendah"
-    };
-    return translations[level] || level;
+    return RISK_LEVEL_TRANSLATIONS[level] || level;
 }
 
 function formatReply(result) {
-    const level = translateRiskLevel(result.risk_level);
-    const score = result.risk_score;
+    if (!result) {
+        return [
+            "=== BOT ANTI-SCAM JAGAIN ===",
+            "",
+            "Tingkat Risiko: Tidak diketahui (0%)",
+            "Indikator: Tidak ada",
+            "",
+            "Penjelasan:",
+            "Tidak ada penjelasan",
+            "",
+            "Rekomendasi:",
+            "Tidak ada rekomendasi"
+        ].join("\n");
+    }
+
+    const level = translateRiskLevel(result.risk_level || "Unknown");
+    const score = result.risk_score !== undefined ? result.risk_score : 0;
     const indicators = result.indicators && result.indicators.length > 0
         ? result.indicators.join(", ")
         : "Tidak ada";
     
+    const explanation = result.explanation || "Tidak ada penjelasan";
+    const recommendation = result.recommendation || "Tidak ada rekomendasi";
+
     return [
         "=== BOT ANTI-SCAM JAGAIN ===",
         "",
@@ -28,10 +47,10 @@ function formatReply(result) {
         `Indikator: ${indicators}`,
         "",
         "Penjelasan:",
-        result.explanation,
+        explanation,
         "",
         "Rekomendasi:",
-        result.recommendation
+        recommendation
     ].join("\n");
 }
 
