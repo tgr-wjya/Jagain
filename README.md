@@ -4,7 +4,7 @@ Jagain is a high-performance, multilingual anti-scam chatbot designed to analyze
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 1. **Sequential Screening Pipeline**: Reduces latency and API costs by checking links locally before calling cloud AI.
 2. **Local SQLite Blocklist**: Instantly cross-checks URLs against a local database containing over 100MB of processed phishing domains.
@@ -15,7 +15,7 @@ Jagain is a high-performance, multilingual anti-scam chatbot designed to analyze
 
 ---
 
-## 📐 Architecture & Flow
+## Architecture & Flow
 
 ```mermaid
 graph TD
@@ -32,7 +32,7 @@ graph TD
 
 ---
 
-## 🛠️ Prerequisites & Setup
+## Prerequisites & Setup
 
 Ensure you have **Python 3.10+** installed.
 
@@ -61,7 +61,7 @@ AZURE_SEARCH_INDEX=sms-scams-index
 
 ---
 
-## 💾 Database Ingestion & RAG Setup
+## Database Ingestion & RAG Setup
 
 1. **Preprocess URL Blocklist** (Creates local SQLite database `scam_urls.db`):
    ```powershell
@@ -74,7 +74,7 @@ AZURE_SEARCH_INDEX=sms-scams-index
 
 ---
 
-## 🧪 Verification & Running
+## Verification & Running
 
 ### Run the Test Suite
 To execute the mock unit and connection tests:
@@ -93,7 +93,7 @@ Once started:
 
 ---
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```text
 ├── backend/

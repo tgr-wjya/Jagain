@@ -5,7 +5,8 @@ import sqlite3
 from dotenv import load_dotenv
 load_dotenv()
 
-from openai import AzureOpenAI
+import time
+from openai import AzureOpenAI, RateLimitError, APIConnectionError
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
@@ -28,6 +29,9 @@ class AntiScamDetector:
             index_name=os.getenv("AZURE_SEARCH_INDEX"),
             credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_API_KEY"))
         )
+        # ponytail: route to mini model for short inputs
+        self.deployment_chat = os.getenv("AZURE_OPENAI_DEPLOYMENT_CHAT")
+        self.deployment_chat_mini = os.getenv("AZURE_OPENAI_DEPLOYMENT_CHAT_MINI", self.deployment_chat)
         
     def get_embedding(self, text):
         response = self.openai_client.embeddings.create(
@@ -56,17 +60,14 @@ class AntiScamDetector:
         urls = extract_urls(message)
         phishing_urls = []
         if urls:
-            conn = None
+            # ponytail: try/finally for connection lifecycle
+            conn = sqlite3.connect(DB_PATH)
             try:
-                with sqlite3.connect(DB_PATH) as c:
-                    conn = c
-                    for url in urls:
-                        status = check_url_in_db(url, conn=conn)
-                        if status == "phishing":
-                            phishing_urls.append(url)
+                for url in urls:
+                    if check_url_in_db(url, conn=conn) == "phishing":
+                        phishing_urls.append(url)
             finally:
-                if conn is not None:
-                    conn.close()
+                conn.close()
                 
         # Short-circuit if high-risk phishing links match local blocklist
         if phishing_urls:
@@ -112,16 +113,32 @@ class AntiScamDetector:
         }
         """.strip()
         
+        # ponytail: select model by input length
+        model = self.deployment_chat_mini if len(message) < 200 else self.deployment_chat
+
         try:
-            response = self.openai_client.chat.completions.create(
-                model=os.getenv("AZURE_OPENAI_DEPLOYMENT_CHAT"),
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": system_prompt.replace("{context}", context)},
-                    {"role": "user", "content": message}
-                ]
-            )
+            # ponytail: transient errors retry logic
+            for attempt in range(3):
+                try:
+                    response = self.openai_client.chat.completions.create(
+                        model=model,
+                        response_format={"type": "json_object"},
+                        messages=[
+                            {"role": "system", "content": system_prompt.replace("{context}", context)},
+                            {"role": "user", "content": message}
+                        ]
+                    )
+                    break
+                except (RateLimitError, APIConnectionError):
+                    if attempt == 2:
+                        raise
+                    time.sleep(2 ** attempt)
+
             result = json.loads(response.choices[0].message.content)
+            
+            # ponytail: log token usage
+            if response.usage:
+                print(f"[{model}] Tokens used - Prompt: {response.usage.prompt_tokens}, Completion: {response.usage.completion_tokens}, Total: {response.usage.total_tokens}")
         except Exception as e:
             result = {
                 "risk_score": 50,

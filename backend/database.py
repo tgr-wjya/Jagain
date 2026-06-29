@@ -16,14 +16,12 @@ def check_url_in_db(raw_url, conn=None):
     if conn is not None:
         return _query_db(conn, normalized, domain)
         
-    conn = None
+    # ponytail: try/finally for connection lifecycle
+    conn = sqlite3.connect(DB_PATH)
     try:
-        with sqlite3.connect(DB_PATH) as c:
-            conn = c
-            return _query_db(conn, normalized, domain)
+        return _query_db(conn, normalized, domain)
     finally:
-        if conn is not None:
-            conn.close()
+        conn.close()
 
 def _query_db(conn, normalized, domain):
     cursor = conn.cursor()

@@ -114,3 +114,52 @@ def test_analyze_message_openai_failure_fallback(mock_check_db, mock_search_clie
     assert result["risk_level"] == "Suspicious"
     assert "API connection timed out" in result["explanation"]
     assert result["detection_source"] == "Azure OpenAI RAG"
+
+@patch('backend.detector.AzureKeyCredential')
+@patch('backend.detector.AzureOpenAI')
+@patch('backend.detector.SearchClient')
+@patch('backend.detector.check_url_in_db')
+def test_analyze_message_routing(mock_check_db, mock_search_client, mock_openai_client, mock_credential):
+    mock_check_db.return_value = None
+    
+    mock_search = MagicMock()
+    mock_search.search.return_value = []
+    
+    mock_embeddings = MagicMock()
+    mock_embeddings.data = [MagicMock(embedding=[0.1, 0.2, 0.3])]
+    mock_openai = MagicMock()
+    mock_openai.embeddings.create.return_value = mock_embeddings
+    
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"risk_score": 10, "risk_level": "Low Risk", "indicators": [], "explanation": "Safe", "recommendation": "None"}'
+    mock_completions = MagicMock()
+    mock_completions.choices = [mock_choice]
+    mock_completions.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    mock_openai.chat.completions.create.return_value = mock_completions
+    
+    mock_openai_client.return_value = mock_openai
+    mock_search_client.return_value = mock_search
+    
+    with patch.dict('os.environ', {
+        'AZURE_OPENAI_DEPLOYMENT_CHAT': 'gpt-4o',
+        'AZURE_OPENAI_DEPLOYMENT_CHAT_MINI': 'gpt-5.4-mini'
+    }):
+        detector = AntiScamDetector()
+        
+        # Test routing short message
+        short_message = "Short msg"
+        detector.analyze_message(short_message)
+        mock_openai.chat.completions.create.assert_any_call(
+            model='gpt-5.4-mini',
+            response_format={"type": "json_object"},
+            messages=ANY
+        )
+        
+        # Test routing long message
+        long_message = "A" * 200
+        detector.analyze_message(long_message)
+        mock_openai.chat.completions.create.assert_any_call(
+            model='gpt-4o',
+            response_format={"type": "json_object"},
+            messages=ANY
+        )
