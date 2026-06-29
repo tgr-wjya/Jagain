@@ -13,14 +13,14 @@ async function checkApiHealth() {
         if (!res.ok) throw new Error("API not healthy");
         const data = await res.json();
         if (data.status === "healthy") {
-            connectionBadge.textContent = "Agent Terkoneksi";
+            connectionBadge.textContent = "Pelindung Aktif";
             connectionBadge.classList.remove("failed");
             connectionBadge.classList.add("ready");
         } else {
             throw new Error("Unhealthy status");
         }
     } catch (err) {
-        connectionBadge.textContent = "Koneksi Gagal";
+        connectionBadge.textContent = "Koneksi Terputus";
         connectionBadge.classList.remove("ready");
         connectionBadge.classList.add("failed");
     }

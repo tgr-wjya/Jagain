@@ -1,4 +1,4 @@
-# 🛡️ Jagain — Multilingual Anti-Scam Shield
+# Jagain — Multilingual Anti-Scam Shield
 
 Jagain is a high-performance, multilingual anti-scam chatbot designed to analyze incoming text messages, SMS, emails, and links to detect scams and phishing threats. It combines a local high-speed SQLite database blocklist with vector-based semantic search (RAG) powered by Azure OpenAI and Azure AI Search.
 
