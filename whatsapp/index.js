@@ -1,3 +1,4 @@
+const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { parseMessage, formatReply } = require('./formatter');
@@ -7,7 +8,7 @@ const BACKEND_URL = "http://127.0.0.1:8000/api/check-message";
 // Initialize client with local persistence and headless browser options
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: './.wwebjs_auth'
+        dataPath: path.join(__dirname, '.wwebjs_auth')
     }),
     puppeteer: {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
